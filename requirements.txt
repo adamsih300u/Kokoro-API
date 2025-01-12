@@ -1,0 +1,12 @@
+phonemizer
+torch==2.1.0+cpu
+transformers
+scipy
+munch
+flask
+numpy<2.0.0
+flask-socketio
+python-engineio
+python-socketio
+gunicorn
+eventlet 

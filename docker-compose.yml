@@ -1,0 +1,44 @@
+name: kokoro-tts
+services:
+  kokoro-tts:
+    image: kokoro-tts:latest
+    container_name: kokoro-tts
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=""
+      - FORCE_CPU=1
+      - TORCH_DEVICE="cpu"
+    volumes:
+      - ./models:/app/models  # Optional: for persisting models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/voices"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Adjust based on your needs
+        reservations:
+          memory: 1G
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  author: your_name
+  category: AI
+  description: Kokoro Text-to-Speech API Server
+  developer: hexgrad
+  icon: https://your-icon-url.png
+  index: /
+  main: kokoro-tts
+  port_map: "8000"
+  scheme: http
+  title:
+    default: Kokoro TTS
+  thumbnail: https://your-thumbnail-url.png
+  tagline:
+    default: Text-to-Speech API Server using Kokoro model 
