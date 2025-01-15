@@ -189,5 +189,14 @@ def ws_endpoint(ws):
     finally:
         logger.info("WebSocket connection terminated")
 
+# Add near the top with other routes
+@app.route('/voices')
+def list_voices():
+    """Return list of available voices"""
+    return jsonify({
+        'voices': list(VOICES.keys()),
+        'default_voice': DEFAULT_VOICE
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)  # For development 

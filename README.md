@@ -1,222 +1,184 @@
 # Kokoro TTS API Server
 
-A Flask-based API server that provides Text-to-Speech capabilities using the Kokoro TTS model. Supports both REST API and WebSocket connections for real-time streaming audio generation.
+A Flask-based API server that provides Text-to-Speech capabilities using the Kokoro TTS model. Supports both WebSocket connections for real-time streaming audio generation.
 
 ## Features
 
+- Real-time text-to-speech conversion
+- WebSocket streaming with chunked audio delivery
 - Multiple voice support
-- Real-time audio streaming via WebSocket
-- REST API endpoints for simple TTS conversion
+- Rootless container deployment
+- Multi-architecture support (AMD64/ARM64)
 - CPU-optimized inference
-- Docker containerization
-- Sentence batching for optimal performance
+- Automatic text chunking and batching
 
 ## Quick Start
 
 ### Using Docker
 
 ```bash
-# Build the container
-docker build -t kokoro-tts .
+# Pull the container
+docker pull ghcr.io/adamsih300u/kokoro-api:latest
 
 # Run the container
-docker run -p 8000:8000 kokoro-tts
+docker run -d -p 8000:8000 ghcr.io/adamsih300u/kokoro-api:latest
 ```
 
-### Manual Installation
+### Using Docker Compose
 
+Create a `docker-compose.yml`:
+```yaml
+version: '3.8'
+services:
+  tts:
+    image: ghcr.io/adamsih300u/kokoro-api:latest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+Then run:
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-python app.py
+docker-compose up -d
 ```
 
 ## API Reference
 
+### REST Endpoints
+
+#### List Available Voices
+```http
+GET /voices
+```
+
+Response:
+```json
+{
+    "voices": ["af", "other_voices..."],
+    "default_voice": "af"
+}
+```
+
 ### WebSocket API
 
-Connect to: `ws://server:8000/ws`
+Connect to: `ws://your-server:8000/ws`
 
-**Commands:**
+#### Commands
 
 1. Set Voice:
 ```json
 {
     "command": "set_voice",
-    "voice": "af"  // or other available voice
+    "voice": "af"  // or any available voice
 }
 ```
 
-2. Text to Speech:
+2. Generate Speech:
 ```json
 {
     "command": "tts",
-    "text": "Your text to convert to speech"
+    "text": "Your text here"
 }
 ```
 
-**Responses:**
-
-1. Voice Set:
+3. Heartbeat:
 ```json
 {
-    "status": "voice_set",
-    "voice": "af"
+    "command": "ping"
 }
 ```
 
-2. Audio Response:
+#### Server Responses
+
+1. Initial Connection:
 ```json
 {
-    "audio": "base64_encoded_wav_data",
-    "text": "The text that was processed"
+    "status": "connected",
+    "voices": ["af", "other_voices..."],
+    "current_voice": "af"
 }
 ```
 
-3. Error:
+2. Audio Chunks:
 ```json
 {
-    "error": "Error message here"
+    "type": "audio_chunk",
+    "message_id": 1234567890,
+    "audio_chunk": "base64_encoded_audio_data",
+    "is_final": false,
+    "chunk_index": 0,
+    "total_chunks": 10,
+    "text": "Original text"
 }
 ```
 
-## Code Examples
+## Audio Format Specifications
 
-### Python REST Client
+- Sample Rate: 22.05 kHz
+- Bit Depth: 16-bit
+- Channels: Mono
+- Format: PCM WAV
 
-```python
-import requests
+## System Limitations
 
-def get_voices():
-    response = requests.get('http://localhost:8000/voices')
-    return response.json()
+- Maximum text length: 500 characters
+- Optimal text length: 200 characters
+- Processing timeout: 240 seconds
+- Chunk delay: 20ms between audio chunks
 
-def text_to_speech(text, voice='af'):
-    response = requests.post(
-        'http://localhost:8000/tts',
-        json={'text': text, 'voice': voice}
-    )
-    if response.status_code == 200:
-        with open('output.wav', 'wb') as f:
-            f.write(response.content)
-    else:
-        print(f"Error: {response.json()}")
+## Performance Optimization
 
-# Example usage
-voices = get_voices()
-print(f"Available voices: {voices['voices']}")
-text_to_speech("Hello, this is a test.", "af")
+- Automatic text chunking for long inputs
+- Server-side audio streaming
+- CPU optimization and threading
+- Efficient base64 encoding/decoding
+- Rootless container for security
+
+## Development
+
+### Building from Source
+
+```bash
+git clone https://github.com/adamsih300u/Kokoro-API.git
+cd Kokoro-API
+docker build -t kokoro-api:local .
 ```
-
-### Python WebSocket Client
-
-```python
-import socketio
-import base64
-import time
-
-class TTSClient:
-    def __init__(self, server_url='http://localhost:8000'):
-        self.sio = socketio.Client()
-        self.setup_handlers()
-        self.sio.connect(server_url)
-
-    def setup_handlers(self):
-        @self.sio.on('connect')
-        def on_connect():
-            print("Connected to TTS server")
-
-        @self.sio.on('audio_chunk')
-        def on_audio_chunk(data):
-            audio_data = base64.b64decode(data['audio'])
-            filename = f"output_{int(time.time())}.wav"
-            with open(filename, 'wb') as f:
-                f.write(audio_data)
-            print(f"Saved audio chunk: {filename}")
-
-    def set_voice(self, voice):
-        self.sio.emit('set_voice', {'voice': voice})
-
-    def speak(self, text):
-        self.sio.emit('tts', {'text': text})
-
-    def disconnect(self):
-        self.sio.disconnect()
-
-# Example usage
-client = TTSClient()
-client.set_voice('af')
-client.speak("This is a test of the streaming TTS system.")
-time.sleep(5)  # Wait for audio processing
-client.disconnect()
-```
-
-## Configuration
 
 ### Environment Variables
 
 ```bash
-CUDA_VISIBLE_DEVICES=""  # Force CPU usage
-FORCE_CPU=1             # Ensure CPU inference
-TORCH_DEVICE="cpu"      # Set PyTorch device
+PYTHONUNBUFFERED=1
+FLASK_APP=app.py
+FLASK_ENV=production
 ```
-
-### Docker Configuration
-
-The included Dockerfile sets up a CPU-optimized environment for running the TTS server.
-
-```bash
-# Build the image
-docker build -t kokoro-tts .
-
-# Run with specific port
-docker run -p 8000:8000 kokoro-tts
-
-# Run with resource limits
-docker run -p 8000:8000 --memory=2g kokoro-tts
-```
-
-## Performance Optimization
-
-- Optimal text length: 100-200 characters per request
-- Maximum text length: 500 characters
-- Long text is automatically chunked into smaller segments
-- Server timeout is set to 5 minutes for long processing jobs
-- Sentences are automatically batched for optimal processing
-- Uses CPU optimization and threading for better performance
-- Includes caching for frequently used phrases
-
-## Dependencies
-
-Core dependencies (see requirements.txt for full list):
-- Flask
-- Flask-SocketIO
-- PyTorch (CPU version)
-- NumPy
-- SciPy
-- Transformers
 
 ## Troubleshooting
 
-Common issues and solutions:
+1. **Audio Playback Issues**
+   - Ensure proper handling of base64 encoded audio chunks
+   - Verify WAV format compatibility
+   - Check audio chunk ordering using chunk_index
 
-1. **WAV Header Issues**
-   - Ensure client properly handles base64 decoded audio data
-   - Check WAV format compatibility in client audio player
+2. **Connection Issues**
+   - Verify WebSocket URL and port
+   - Check for firewall restrictions
+   - Ensure proper network connectivity
 
-2. **Performance Issues**
-   - Reduce batch size if memory usage is high
-   - Increase number of workers if CPU usage is low
-   - Monitor system resources during operation
-
-3. **Connection Issues**
-   - Verify WebSocket connection URL
-   - Check firewall settings
-   - Ensure proper CORS configuration
+3. **Performance Issues**
+   - Monitor CPU usage
+   - Check memory consumption
+   - Verify text length is within optimal range
 
 ## License
 
 This project uses the Kokoro TTS model. Please check the model's license for usage terms.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 ```
