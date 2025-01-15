@@ -14,11 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Initialize git-lfs
 RUN git lfs install
 
-# Copy requirements
-COPY requirements.txt .
+# Install PyTorch CPU first
+RUN pip install --no-cache-dir torch==2.1.0 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy requirements and install other dependencies
+COPY requirements.txt .
+RUN grep -v "torch" requirements.txt > requirements_no_torch.txt && \
+    pip install --no-cache-dir -r requirements_no_torch.txt
 
 # Clone and prepare Kokoro files
 RUN git clone https://huggingface.co/hexgrad/Kokoro-82M /tmp/kokoro && \
