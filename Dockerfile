@@ -1,39 +1,70 @@
-# Use Python 3.9 as base image
-FROM python:3.9-slim
-
-# Set environment variables to force CPU usage
-ENV CUDA_VISIBLE_DEVICES=""
-ENV FORCE_CPU=1
-ENV TORCH_DEVICE="cpu"
+# Build stage
+FROM python:3.9-slim AS builder
 
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libsndfile1 \
     git \
     git-lfs \
-    espeak-ng \
     && rm -rf /var/lib/apt/lists/*
 
 # Initialize git-lfs
 RUN git lfs install
 
-# Clone the repository
-RUN git clone https://huggingface.co/hexgrad/Kokoro-82M .
-
-# Install Python dependencies
+# Copy requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Clone and prepare Kokoro files
+RUN git clone https://huggingface.co/hexgrad/Kokoro-82M /tmp/kokoro && \
+    mkdir -p /build/kokoro && \
+    cp /tmp/kokoro/*.py /build/kokoro/ && \
+    cp /tmp/kokoro/*.json /build/kokoro/ && \
+    cp /tmp/kokoro/*.pth /build/kokoro/ && \
+    cp -r /tmp/kokoro/voices /build/kokoro/ && \
+    rm -rf /tmp/kokoro
+
+# Final stage
+FROM python:3.9-slim
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    espeak-ng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+
+# Copy Kokoro files from builder
+COPY --from=builder /build/kokoro/ .
 
 # Copy application code
-COPY . .
+COPY app.py .
 
-# Expose port (adjust as needed)
+# Change ownership of the application files
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "--timeout", "300", "--keep-alive", "120", "app:app"] 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+
+# Run the application
+CMD ["python", "app.py"] 

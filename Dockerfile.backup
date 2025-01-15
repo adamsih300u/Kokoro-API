@@ -1,0 +1,53 @@
+# Use Python slim image as base
+FROM python:3.9-slim
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    git-lfs \
+    espeak-ng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Initialize git-lfs
+RUN git lfs install
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Clone Kokoro repository to a temporary directory and move required files
+RUN git clone https://huggingface.co/hexgrad/Kokoro-82M /tmp/kokoro && \
+    cp /tmp/kokoro/*.py . && \
+    cp /tmp/kokoro/*.json . && \
+    cp /tmp/kokoro/*.pth . && \
+    cp -r /tmp/kokoro/voices . && \
+    rm -rf /tmp/kokoro
+
+# Copy our application code
+COPY app.py .
+
+# Change ownership of the application files to appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+
+# Run the application
+CMD ["python", "app.py"] 

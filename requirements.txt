@@ -1,12 +1,11 @@
 phonemizer
+--find-links https://download.pytorch.org/whl/cpu/torch_stable.html
 torch==2.1.0+cpu
 transformers
 scipy
 munch
 flask
 numpy<2.0.0
-flask-socketio
-python-engineio
-python-socketio
 gunicorn
-eventlet 
+eventlet
+flask-sock 

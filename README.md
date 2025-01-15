@@ -35,66 +35,52 @@ python app.py
 
 ## API Reference
 
-### REST API Endpoints
-
-1. **List Available Voices**
-```http
-GET /voices
-```
-Response:
-```json
-{
-    "voices": ["af", "bella", "sarah"],
-    "default_voice": "af"
-}
-```
-
-2. **Text to Speech**
-```http
-POST /tts
-Content-Type: application/json
-
-{
-    "text": "Your text here",
-    "voice": "af"  // Optional, defaults to "af"
-}
-```
-Response: WAV audio file
-
 ### WebSocket API
 
-The WebSocket API provides real-time streaming capabilities for continuous text-to-speech conversion.
+Connect to: `ws://server:8000/ws`
 
-#### Events
+**Commands:**
 
-1. **Connection**
-   - Client connects to `ws://localhost:8000`
-   - Server emits 'connect' event on successful connection
+1. Set Voice:
+```json
+{
+    "command": "set_voice",
+    "voice": "af"  // or other available voice
+}
+```
 
-2. **Set Voice**
-   ```javascript
-   // Emit 'set_voice' event
-   {
-       "voice": "af"  // or any available voice
-   }
-   ```
+2. Text to Speech:
+```json
+{
+    "command": "tts",
+    "text": "Your text to convert to speech"
+}
+```
 
-3. **Send Text**
-   ```javascript
-   // Emit 'tts' event
-   {
-       "text": "Your text to convert to speech"
-   }
-   ```
+**Responses:**
 
-4. **Receive Audio**
-   ```javascript
-   // Listen for 'audio_chunk' events
-   {
-       "audio": "base64_encoded_wav_data",
-       "text": "The text that was processed"
-   }
-   ```
+1. Voice Set:
+```json
+{
+    "status": "voice_set",
+    "voice": "af"
+}
+```
+
+2. Audio Response:
+```json
+{
+    "audio": "base64_encoded_wav_data",
+    "text": "The text that was processed"
+}
+```
+
+3. Error:
+```json
+{
+    "error": "Error message here"
+}
+```
 
 ## Code Examples
 
