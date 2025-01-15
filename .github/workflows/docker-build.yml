@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -51,5 +55,9 @@ jobs:
         tags: |
           ghcr.io/adamsih300u/kokoro-api:latest
           ghcr.io/adamsih300u/kokoro-api:${{ github.sha }}
+          ghcr.io/adamsih300u/kokoro-api:amd64-latest
+          ghcr.io/adamsih300u/kokoro-api:arm64-latest
+          ghcr.io/adamsih300u/kokoro-api:amd64-${{ github.sha }}
+          ghcr.io/adamsih300u/kokoro-api:arm64-${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max 
